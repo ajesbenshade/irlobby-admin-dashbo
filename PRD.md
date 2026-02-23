@@ -32,12 +32,12 @@ See `API_INTEGRATION.md` for detailed documentation on the API layer.
 ## Essential Features
 
 ### Authentication Flow
-- **Functionality**: Secure login/logout system with session persistence and role-based access control
-- **Purpose**: Protect admin resources and ensure only authorized users can access the dashboard
-- **Trigger**: App initialization or user logout
-- **Progression**: Load app → Check stored auth → Show login if unauthenticated → Validate credentials → Store session → Display dashboard → Logout clears session
-- **Success criteria**: Session persists across page reloads; unauthorized users cannot access protected routes; role-based restrictions enforced
-- **Implementation Status**: ✅ Complete - Full authentication flow with login page, protected routes, role-based access, persistent sessions via useKV, and logout functionality
+- **Functionality**: Secure login/logout system with session persistence, role-based access control, and password reset flow
+- **Purpose**: Protect admin resources, ensure only authorized users can access the dashboard, and provide secure password recovery
+- **Trigger**: App initialization, user logout, or forgotten password
+- **Progression**: Load app → Check stored auth → Show login if unauthenticated → Validate credentials → Store session → Display dashboard → Logout clears session | Password Reset: Click "Forgot Password" → Enter email → Receive verification code → Enter 6-digit code → Set new password → Return to login
+- **Success criteria**: Session persists across page reloads; unauthorized users cannot access protected routes; role-based restrictions enforced; password reset codes expire after 15 minutes; new password meets security requirements
+- **Implementation Status**: ✅ Complete - Full authentication flow with login page, protected routes, role-based access, persistent sessions via useKV, logout functionality, and comprehensive password reset flow with email verification
 
 ### Authentication-Aware Layout
 - **Functionality**: Displays different UI states based on user authentication and role

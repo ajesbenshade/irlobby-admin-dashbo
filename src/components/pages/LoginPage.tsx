@@ -6,13 +6,22 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { SignIn, Eye, EyeSlash } from '@phosphor-icons/react'
+import { ForgotPasswordPage } from './ForgotPasswordPage'
+import { VerifyCodePage } from './VerifyCodePage'
+import { ResetPasswordPage } from './ResetPasswordPage'
+import { toast } from 'sonner'
+
+type AuthView = 'login' | 'forgot-password' | 'verify-code' | 'reset-password'
 
 export function LoginPage() {
   const { login, isLoading } = useAuth()
+  const [view, setView] = useState<AuthView>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [resetEmail, setResetEmail] = useState('')
+  const [verificationCode, setVerificationCode] = useState('')
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -28,6 +37,63 @@ export function LoginPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed. Please check your credentials.')
     }
+  }
+
+  const handleForgotPassword = () => {
+    setView('forgot-password')
+    setError(null)
+  }
+
+  const handleBackToLogin = () => {
+    setView('login')
+    setError(null)
+  }
+
+  const handleCodeSent = (sentToEmail: string) => {
+    setResetEmail(sentToEmail)
+    setView('verify-code')
+  }
+
+  const handleCodeVerified = (verifiedEmail: string, code: string) => {
+    setResetEmail(verifiedEmail)
+    setVerificationCode(code)
+    setView('reset-password')
+  }
+
+  const handlePasswordReset = () => {
+    toast.success('Password reset successfully! Please sign in with your new password.')
+    setView('login')
+    setResetEmail('')
+    setVerificationCode('')
+  }
+
+  if (view === 'forgot-password') {
+    return (
+      <ForgotPasswordPage
+        onBackToLogin={handleBackToLogin}
+        onCodeSent={handleCodeSent}
+      />
+    )
+  }
+
+  if (view === 'verify-code') {
+    return (
+      <VerifyCodePage
+        email={resetEmail}
+        onBackToForgotPassword={() => setView('forgot-password')}
+        onCodeVerified={handleCodeVerified}
+      />
+    )
+  }
+
+  if (view === 'reset-password') {
+    return (
+      <ResetPasswordPage
+        email={resetEmail}
+        verificationCode={verificationCode}
+        onPasswordReset={handlePasswordReset}
+      />
+    )
   }
 
   return (
@@ -98,6 +164,16 @@ export function LoginPage() {
                     )}
                   </button>
                 </div>
+              </div>
+
+              <div className="flex items-center justify-end mb-4">
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-sm text-accent hover:text-accent-foreground transition-colors"
+                >
+                  Forgot password?
+                </button>
               </div>
 
               <Button

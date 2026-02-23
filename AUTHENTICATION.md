@@ -16,16 +16,34 @@ The IRLobby Admin Dashboard implements a comprehensive authentication system wit
 2. **LoginPage** (`src/components/pages/LoginPage.tsx`)
    - User-facing login form
    - Email/password authentication
+   - Password reset flow orchestration
    - Error handling and validation
    - Demo credentials display
 
-3. **ProtectedRoute** (`src/components/auth/ProtectedRoute.tsx`)
+3. **ForgotPasswordPage** (`src/components/pages/ForgotPasswordPage.tsx`)
+   - Password reset request form
+   - Email validation
+   - Sends verification code to user's email
+
+4. **VerifyCodePage** (`src/components/pages/VerifyCodePage.tsx`)
+   - 6-digit verification code entry
+   - Auto-focus and paste support
+   - Code resend functionality with cooldown
+   - 15-minute expiration warning
+
+5. **ResetPasswordPage** (`src/components/pages/ResetPasswordPage.tsx`)
+   - New password entry with confirmation
+   - Password strength indicator
+   - Real-time validation against security requirements
+   - Success confirmation and redirect
+
+6. **ProtectedRoute** (`src/components/auth/ProtectedRoute.tsx`)
    - Wraps protected content
    - Enforces authentication requirements
    - Implements role-based access control
    - Shows loading states during auth check
 
-4. **AppLayout** (`src/components/layout/AppLayout.tsx`)
+7. **AppLayout** (`src/components/layout/AppLayout.tsx`)
    - Displays authenticated user information
    - Provides logout functionality
    - Shows user avatar, email, and role badge
@@ -54,6 +72,21 @@ The IRLobby Admin Dashboard implements a comprehensive authentication system wit
 2. Logout request sent to `/admin/auth/logout` endpoint
 3. Auth token and user data cleared from KV
 4. User redirected to login page
+
+### Password Reset Flow
+1. User clicks "Forgot password?" on login page
+2. Enters email address on ForgotPasswordPage
+3. System sends 6-digit verification code to email
+4. User enters code on VerifyCodePage
+5. On successful verification, user proceeds to ResetPasswordPage
+6. User enters and confirms new password
+7. Password must meet security requirements:
+   - At least 8 characters
+   - One uppercase letter
+   - One lowercase letter
+   - One number
+8. On success, user is redirected to login with success toast
+9. User can now log in with new password
 
 ### Session Persistence
 - Uses Spark's `useKV` hook for reactive state management
@@ -91,6 +124,57 @@ POST https://api.irlobby.com/admin/auth/logout
 Authorization: Bearer {token}
 
 Response: 200 OK
+```
+
+### Password Reset Endpoints
+
+#### Request Password Reset
+```typescript
+POST https://api.irlobby.com/admin/auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "admin@irlobby.com"
+}
+
+Response:
+{
+  "message": "Verification code sent to email",
+  "expiresIn": 900
+}
+```
+
+#### Verify Reset Code
+```typescript
+POST https://api.irlobby.com/admin/auth/verify-reset-code
+Content-Type: application/json
+
+{
+  "email": "admin@irlobby.com",
+  "code": "123456"
+}
+
+Response:
+{
+  "message": "Code verified successfully"
+}
+```
+
+#### Reset Password
+```typescript
+POST https://api.irlobby.com/admin/auth/reset-password
+Content-Type: application/json
+
+{
+  "email": "admin@irlobby.com",
+  "code": "123456",
+  "newPassword": "NewSecurePass123"
+}
+
+Response:
+{
+  "message": "Password reset successfully"
+}
 ```
 
 ## Role-Based Access Control
@@ -166,6 +250,15 @@ type AuthUser = {
 
 ## Security Considerations
 
+### Password Reset Security
+✅ Verification codes expire after 15 minutes
+✅ Codes are single-use (consumed upon successful verification)
+✅ Email validation prevents submission of invalid addresses
+✅ Password requirements enforced client-side with real-time feedback
+✅ Rate limiting on resend (60-second cooldown)
+✅ No user enumeration - same response for valid/invalid emails
+✅ Success toast notification with automatic redirect
+
 ### What's Protected
 ✅ Authentication tokens stored securely in Spark KV
 ✅ Role-based access control enforced at component level
@@ -217,7 +310,9 @@ Potential improvements to consider:
 - [ ] Refresh token mechanism for long-lived sessions
 - [ ] "Remember me" option for extended sessions
 - [ ] Two-factor authentication support
-- [ ] Password reset flow
+- [✅] Password reset flow (Implemented)
 - [ ] Account lockout after failed attempts
 - [ ] Session management (view/revoke active sessions)
 - [ ] Audit log for authentication events
+- [ ] Password strength requirements enforcement on backend
+- [ ] Rate limiting on password reset requests
