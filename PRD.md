@@ -10,6 +10,25 @@ A web-based administration and analytics companion for the IRLobby mobile app, d
 **Complexity Level**: Complex Application (advanced functionality, likely with multiple views)
 This is a multi-view admin dashboard with user management, content moderation, analytics visualization, and AI-assisted workflows. It requires sophisticated state management, data visualization, and modular architecture to support incremental feature additions.
 
+## Architecture
+
+The application uses a layered architecture with clear separation of concerns:
+
+### API Integration Layer
+- **API Client** (`src/lib/api-client.ts`): HTTP client with timeout, error handling, and request/response interceptors
+- **API Services** (`src/lib/api.ts`): Type-safe endpoint definitions organized by resource
+- **React Hooks** (`src/hooks/use-api.ts`): Custom hooks for data fetching and mutations with loading/error states
+- **Configuration** (`src/lib/config.ts`): Environment-based configuration for API endpoints and app settings
+
+### Data Flow
+1. Components use React hooks (`useUsers`, `useDashboardMetrics`, etc.)
+2. Hooks call API service functions
+3. API services use the API client for HTTP communication
+4. Responses are typed and returned to components
+5. Components render data with proper loading and error states
+
+See `API_INTEGRATION.md` for detailed documentation on the API layer.
+
 ## Essential Features
 
 ### Authentication-Aware Layout
@@ -18,6 +37,7 @@ This is a multi-view admin dashboard with user management, content moderation, a
 - **Trigger**: App initialization and route changes
 - **Progression**: App loads → Check auth state → Show login prompt or authenticated shell → Route to appropriate view
 - **Success criteria**: Correct UI renders for authenticated/unauthenticated states; auth state persists across sessions
+- **Implementation Status**: ✅ Complete - Uses Spark's `spark.user()` API for authentication awareness
 
 ### Dashboard Home
 - **Functionality**: Central overview displaying app health, user activity, and key performance indicators
@@ -25,6 +45,7 @@ This is a multi-view admin dashboard with user management, content moderation, a
 - **Trigger**: User navigates to home route or completes login
 - **Progression**: Navigate to dashboard → Load metrics → Render status cards and charts → Enable drill-down interactions
 - **Success criteria**: Metrics display within 500ms; cards are clickable and navigate to detail views
+- **Implementation Status**: ✅ Complete - Real API integration with `useDashboardMetrics` and `useAppStatus` hooks
 
 ### User Management
 - **Functionality**: View, search, filter, and moderate user accounts
@@ -32,6 +53,7 @@ This is a multi-view admin dashboard with user management, content moderation, a
 - **Trigger**: Navigate to Users section from sidebar
 - **Progression**: Open users view → Load user list → Apply filters/search → Select user → View details → Take moderation action
 - **Success criteria**: List renders with sorting/filtering; search returns results in <200ms; actions provide confirmation
+- **Implementation Status**: ✅ Complete - Real API integration with `useUsers` hook, debounced search, and error handling
 
 ### Content Moderation Panel
 - **Functionality**: Review flagged content, apply moderation actions, and track moderation history
@@ -39,6 +61,7 @@ This is a multi-view admin dashboard with user management, content moderation, a
 - **Trigger**: Navigate to Moderation section or click flagged content alert
 - **Progression**: Open moderation queue → Review item → View context/reports → Make decision → Apply action → Log outcome
 - **Success criteria**: Queue displays prioritized items; actions are reversible; audit trail is maintained
+- **Implementation Status**: ✅ Complete - Real API integration with `useContentItems` and `useModerateContent` hooks, toast notifications
 
 ### Analytics Section
 - **Functionality**: Visualize app usage patterns, engagement metrics, and growth trends
@@ -46,6 +69,7 @@ This is a multi-view admin dashboard with user management, content moderation, a
 - **Trigger**: Navigate to Analytics section
 - **Progression**: Select analytics view → Choose date range → Load data → Render charts → Enable metric comparisons
 - **Success criteria**: Charts render smoothly; date pickers work intuitively; data exports are available
+- **Implementation Status**: ✅ Complete - Real API integration with `useAnalyticsTimeSeries` and `useEngagementMetrics` hooks, Recharts visualization
 
 ### AI Assistant Panel
 - **Functionality**: Chat interface for AI-assisted administrative tasks and insights
@@ -53,15 +77,18 @@ This is a multi-view admin dashboard with user management, content moderation, a
 - **Trigger**: Click AI assistant icon or use keyboard shortcut
 - **Progression**: Open assistant → Type query → Receive response → Execute suggested actions → Close or continue conversation
 - **Success criteria**: Responses appear within 2s; context is maintained across conversation; actions integrate with dashboard
+- **Implementation Status**: ⏳ Pending - UI scaffold ready, awaits AI integration
 
 ## Edge Case Handling
 
-- **Network Failures**: Graceful offline state with cached data display and retry mechanisms
-- **Empty States**: Helpful illustrations and CTAs for sections with no data (new accounts, zero reports, etc.)
-- **Unauthorized Access**: Redirect to login with preserved destination; clear error messaging
-- **Invalid Data**: Validation feedback before submission; type-safe parsing of API responses
-- **Long Operations**: Loading states with progress indication; ability to cancel long-running tasks
-- **Concurrent Edits**: Optimistic updates with conflict resolution and manual refresh option
+- **Network Failures**: ✅ Graceful error states with user-friendly messages and retry buttons
+- **Empty States**: ✅ Helpful messages for sections with no data (implemented in all list views)
+- **Unauthorized Access**: ⏳ Planned - Redirect to login with preserved destination; clear error messaging
+- **Invalid Data**: ✅ Type-safe parsing of API responses via TypeScript interfaces
+- **Long Operations**: ✅ Loading states with skeleton loaders; mutation indicators with disabled buttons
+- **Concurrent Edits**: ⏳ Planned - Optimistic updates with conflict resolution
+- **API Timeouts**: ✅ 30-second timeout with TIMEOUT error code and retry functionality
+- **Debounced Search**: ✅ 300ms debounce on search inputs to reduce API calls
 
 ## Design Direction
 

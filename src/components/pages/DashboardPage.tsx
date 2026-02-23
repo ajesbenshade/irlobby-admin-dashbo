@@ -1,9 +1,13 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { PulseIcon as Activity, Users, Flag, Clock } from '@phosphor-icons/react'
-import { mockMetrics, mockAppStatus } from '@/lib/mock-data'
+import { PulseIcon as Activity, Users, Flag, Clock, Warning } from '@phosphor-icons/react'
+import { useDashboardMetrics, useAppStatus } from '@/hooks/use-api'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { Metric } from '@/types'
 
 export function DashboardPage() {
+  const { data: metrics, isLoading: metricsLoading, error: metricsError } = useDashboardMetrics()
+  const { data: status, isLoading: statusLoading } = useAppStatus()
+
   return (
     <div className="space-y-8">
       <div>
@@ -13,14 +17,26 @@ export function DashboardPage() {
         </p>
       </div>
 
+      {metricsError && (
+        <Card className="border-destructive">
+          <CardContent className="flex items-center gap-3 pt-6">
+            <Warning className="h-5 w-5 text-destructive" />
+            <div>
+              <p className="font-medium text-destructive">Failed to load metrics</p>
+              <p className="text-sm text-muted-foreground">{metricsError.message}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {mockMetrics.map((metric) => (
-          <MetricCard key={metric.label} metric={metric} />
-        ))}
+        {metricsLoading
+          ? Array.from({ length: 4 }).map((_, i) => <MetricCardSkeleton key={i} />)
+          : metrics?.map((metric) => <MetricCard key={metric.label} metric={metric} />)}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <SystemStatusCard />
+        <SystemStatusCard status={status} isLoading={statusLoading} />
         <QuickActionsCard />
       </div>
     </div>
@@ -50,9 +66,22 @@ function MetricCard({ metric }: { metric: Metric }) {
   )
 }
 
-function SystemStatusCard() {
-  const status = mockAppStatus
+function MetricCardSkeleton() {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-4 w-4" />
+      </CardHeader>
+      <CardContent>
+        <Skeleton className="h-8 w-20" />
+        <Skeleton className="h-3 w-32 mt-1" />
+      </CardContent>
+    </Card>
+  )
+}
 
+function SystemStatusCard({ status, isLoading }: { status: typeof useAppStatus extends () => { data: infer T } ? T : never; isLoading: boolean }) {
   return (
     <Card>
       <CardHeader>
@@ -60,40 +89,53 @@ function SystemStatusCard() {
         <CardDescription>Real-time application health metrics</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">API Status</span>
-          <div className="flex items-center gap-2">
-            <div
-              className={`h-2 w-2 rounded-full ${
-                status.isHealthy ? 'bg-green-500' : 'bg-red-500'
-              }`}
-            />
-            <span className="text-sm text-muted-foreground">
-              {status.isHealthy ? 'Operational' : 'Degraded'}
-            </span>
-          </div>
-        </div>
+        {isLoading ? (
+          <>
+            <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-5 w-full" />
+          </>
+        ) : status ? (
+          <>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">API Status</span>
+              <div className="flex items-center gap-2">
+                <div
+                  className={`h-2 w-2 rounded-full ${
+                    status.isHealthy ? 'bg-green-500' : 'bg-red-500'
+                  }`}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {status.isHealthy ? 'Operational' : 'Degraded'}
+                </span>
+              </div>
+            </div>
 
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">API Latency</span>
-          <span className="text-sm text-muted-foreground font-mono">
-            {status.apiLatency}ms
-          </span>
-        </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">API Latency</span>
+              <span className="text-sm text-muted-foreground font-mono">
+                {status.apiLatency}ms
+              </span>
+            </div>
 
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Error Rate</span>
-          <span className="text-sm text-muted-foreground font-mono">
-            {status.errorRate.toFixed(2)}%
-          </span>
-        </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Error Rate</span>
+              <span className="text-sm text-muted-foreground font-mono">
+                {status.errorRate.toFixed(2)}%
+              </span>
+            </div>
 
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Active Users</span>
-          <span className="text-sm text-muted-foreground font-mono">
-            {status.activeUsers.toLocaleString()}
-          </span>
-        </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Active Users</span>
+              <span className="text-sm text-muted-foreground font-mono">
+                {status.activeUsers.toLocaleString()}
+              </span>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
+        )}
       </CardContent>
     </Card>
   )

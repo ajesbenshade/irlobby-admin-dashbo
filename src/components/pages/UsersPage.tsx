@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
   TableBody,
@@ -17,21 +18,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { MagnifyingGlass, DotsThreeVertical } from '@phosphor-icons/react'
-import { mockUsers } from '@/lib/mock-data'
+import { MagnifyingGlass, DotsThreeVertical, Warning } from '@phosphor-icons/react'
+import { useUsers } from '@/hooks/use-api'
 import type { User } from '@/types'
 
 export function UsersPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery)
 
-  const filteredUsers = mockUsers.filter((user) => {
-    const matchesSearch =
-      user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || user.status === statusFilter
-    return matchesSearch && matchesStatus
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+    }, 300)
+
+    return () => clearTimeout(handler)
+  }, [searchQuery])
+
+  const { data, isLoading, error, refetch } = useUsers({
+    search: debouncedSearch || undefined,
+    status: statusFilter === 'all' ? undefined : statusFilter,
   })
+
+  const users = data?.users || []
+  const total = data?.total || 0
 
   return (
     <div className="space-y-8">
@@ -42,11 +52,29 @@ export function UsersPage() {
         </p>
       </div>
 
+      {error && (
+        <Card className="border-destructive">
+          <CardContent className="flex items-center gap-3 pt-6">
+            <Warning className="h-5 w-5 text-destructive" />
+            <div className="flex-1">
+              <p className="font-medium text-destructive">Failed to load users</p>
+              <p className="text-sm text-muted-foreground">{error.message}</p>
+            </div>
+            <button
+              onClick={() => refetch()}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Retry
+            </button>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Users</CardTitle>
           <CardDescription>
-            {filteredUsers.length} of {mockUsers.length} users
+            {isLoading ? 'Loading...' : `${users.length} of ${total} users`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -86,9 +114,17 @@ export function UsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((user) => (
-                  <UserRow key={user.id} user={user} />
-                ))}
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => <UserRowSkeleton key={i} />)
+                ) : users.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      No users found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  users.map((user) => <UserRow key={user.id} user={user} />)
+                )}
               </TableBody>
             </Table>
           </div>
@@ -132,6 +168,24 @@ function UserRow({ user }: { user: User }) {
           <DotsThreeVertical className="h-5 w-5" />
         </button>
       </TableCell>
+    </TableRow>
+  )
+}
+
+function UserRowSkeleton() {
+  return (
+    <TableRow>
+      <TableCell>
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-8 w-8 rounded-full" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+      </TableCell>
+      <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+      <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+      <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+      <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+      <TableCell><Skeleton className="h-5 w-5" /></TableCell>
     </TableRow>
   )
 }
