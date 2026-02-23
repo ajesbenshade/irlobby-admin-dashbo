@@ -26,6 +26,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [authToken, setAuthToken] = useKV<string | null>('auth-token', null)
   const [authUser, setAuthUser] = useKV<AuthUser | null>('auth-user', null)
+  const [initialized, setInitialized] = useState(false)
+
+  useEffect(() => {
+    if (!initialized) {
+      if (authToken && authUser) {
+        setUser(authUser)
+      }
+      setIsLoading(false)
+      setInitialized(true)
+    }
+  }, [initialized, authToken, authUser])
 
   const checkAuth = async () => {
     setIsLoading(true)
@@ -38,19 +49,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Auth check failed:', error)
       setUser(null)
-      setAuthToken(null)
-      setAuthUser(null)
     } finally {
       setIsLoading(false)
     }
   }
 
-  useEffect(() => {
-    checkAuth()
-  }, [])
-
   const login = async (email: string, password: string) => {
-    setIsLoading(true)
     try {
       const response = await fetch('https://api.irlobby.com/admin/auth/login', {
         method: 'POST',
@@ -77,16 +81,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthToken(() => data.token)
       setAuthUser(() => userData)
       setUser(userData)
-      setIsLoading(false)
     } catch (error) {
       console.error('Login error:', error)
-      setIsLoading(false)
       throw error
     }
   }
 
   const logout = async () => {
-    setIsLoading(true)
     try {
       if (authToken) {
         await fetch('https://api.irlobby.com/admin/auth/logout', {
@@ -96,12 +97,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           },
         }).catch(() => {})
       }
-      
+    } finally {
       setAuthToken(() => null)
       setAuthUser(() => null)
       setUser(null)
-    } finally {
-      setIsLoading(false)
     }
   }
 
