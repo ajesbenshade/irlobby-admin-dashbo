@@ -52,6 +52,12 @@ export function AppLayout({ children, currentPage, onNavigate }: AppLayoutProps)
     return user.login.substring(0, 2).toUpperCase()
   }
 
+  return (
+    <div className="flex h-screen bg-background">
+      <aside
+        className={cn(
+          'border-r bg-card transition-all duration-300',
+          isSidebarCollapsed ? 'w-20' : 'w-64'
         )}
       >
         <div className="flex h-16 items-center justify-between px-4 border-b">
@@ -88,7 +94,7 @@ export function AppLayout({ children, currentPage, onNavigate }: AppLayoutProps)
 
             return (
               <button
-          {visibleNavItems.map((item) => {
+                key={item.id}
                 onClick={() => onNavigate(item.id)}
                 className={cn(
                   'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
@@ -163,9 +169,9 @@ export function AppLayout({ children, currentPage, onNavigate }: AppLayoutProps)
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                    <div className={cn("w-fit mt-1 px-2 py-0.5 text-xs rounded-md", getRoleBadgeColor(user?.role || 'user'))}>
-                      {getRoleLabel(user?.role || 'user')}
-                    </div>
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                  <SignOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
