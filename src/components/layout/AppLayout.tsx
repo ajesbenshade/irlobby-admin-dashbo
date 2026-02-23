@@ -1,12 +1,15 @@
 import { useState } from 'react'
-import { House, Users, Flag, ChartBar, Robot, SignOut } from '@phosphor-icons/react'
+import { House, Users, Flag, ChartBar, Robot, SignOut, ShieldCheck } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
+import { usePermissions } from '@/hooks/use-permissions'
+import { getRoleBadgeColor, getRoleLabel } from '@/lib/permissions'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import type { Permission } from '@/lib/permissions'
 
-type Page = 'dashboard' | 'users' | 'moderation' | 'analytics' | 'ai'
+type Page = 'dashboard' | 'users' | 'moderation' | 'analytics' | 'ai' | 'admin'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -17,14 +20,24 @@ interface AppLayoutProps {
 export function AppLayout({ children, currentPage, onNavigate }: AppLayoutProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const { user, logout } = useAuth()
+  const { can } = usePermissions()
 
-  const navItems = [
-    { id: 'dashboard' as Page, label: 'Dashboard', icon: House },
-    { id: 'users' as Page, label: 'Users', icon: Users },
-    { id: 'moderation' as Page, label: 'Moderation', icon: Flag, badge: 23 },
-    { id: 'analytics' as Page, label: 'Analytics', icon: ChartBar },
-    { id: 'ai' as Page, label: 'AI Assistant', icon: Robot },
+  const navItems: Array<{
+    id: Page
+    label: string
+    icon: typeof House
+    badge?: number
+    permission: Permission
+  }> = [
+    { id: 'dashboard' as Page, label: 'Dashboard', icon: House, permission: 'view_dashboard' },
+    { id: 'users' as Page, label: 'Users', icon: Users, permission: 'view_users' },
+    { id: 'moderation' as Page, label: 'Moderation', icon: Flag, badge: 23, permission: 'view_moderation' },
+    { id: 'analytics' as Page, label: 'Analytics', icon: ChartBar, permission: 'view_analytics' },
+    { id: 'ai' as Page, label: 'AI Assistant', icon: Robot, permission: 'view_ai_assistant' },
+    { id: 'admin' as Page, label: 'Admin Panel', icon: ShieldCheck, permission: 'access_admin_panel' },
   ]
+
+  const visibleNavItems = navItems.filter(item => can(item.permission))
 
   const handleLogout = async () => {
     await logout()
@@ -37,12 +50,6 @@ export function AppLayout({ children, currentPage, onNavigate }: AppLayoutProps)
       return `${names[0][0]}${names[1][0]}`.toUpperCase()
     }
     return user.login.substring(0, 2).toUpperCase()
-  }
-
-  const getRoleBadgeVariant = () => {
-    if (user?.role === 'admin') return 'default'
-    if (user?.role === 'moderator') return 'secondary'
-    return 'outline'
   }
 
   return (
@@ -81,7 +88,7 @@ export function AppLayout({ children, currentPage, onNavigate }: AppLayoutProps)
         </div>
 
         <nav className="p-3 space-y-1">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon
             const isActive = currentPage === item.id
 
@@ -156,9 +163,9 @@ export function AppLayout({ children, currentPage, onNavigate }: AppLayoutProps)
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium">{user?.login}</p>
                     <p className="text-xs text-muted-foreground">{user?.email}</p>
-                    <Badge variant={getRoleBadgeVariant()} className="w-fit mt-1">
-                      {user?.role}
-                    </Badge>
+                    <div className={cn("w-fit mt-1 px-2 py-0.5 text-xs rounded-md", getRoleBadgeColor(user?.role || 'user'))}>
+                      {getRoleLabel(user?.role || 'user')}
+                    </div>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />

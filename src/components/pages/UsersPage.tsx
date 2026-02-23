@@ -4,6 +4,14 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
   Table,
   TableBody,
   TableCell,
@@ -18,8 +26,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { MagnifyingGlass, DotsThreeVertical, Warning } from '@phosphor-icons/react'
+import { MagnifyingGlass, DotsThreeVertical, Warning, Eye, PencilSimple, Trash, Prohibit, Lock } from '@phosphor-icons/react'
 import { useUsers } from '@/hooks/use-api'
+import { usePermissions } from '@/hooks/use-permissions'
+import { PermissionGate } from '@/components/auth/PermissionGate'
 import type { User } from '@/types'
 
 export function UsersPage() {
@@ -135,6 +145,8 @@ export function UsersPage() {
 }
 
 function UserRow({ user }: { user: User }) {
+  const { can } = usePermissions()
+  
   return (
     <TableRow>
       <TableCell>
@@ -164,9 +176,50 @@ function UserRow({ user }: { user: User }) {
         )}
       </TableCell>
       <TableCell>
-        <button className="text-muted-foreground hover:text-foreground">
-          <DotsThreeVertical className="h-5 w-5" />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="text-muted-foreground hover:text-foreground">
+              <DotsThreeVertical className="h-5 w-5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>
+              <Eye className="mr-2 h-4 w-4" />
+              View Details
+            </DropdownMenuItem>
+            
+            <PermissionGate permission="manage_users">
+              <DropdownMenuItem>
+                <PencilSimple className="mr-2 h-4 w-4" />
+                Edit User
+              </DropdownMenuItem>
+            </PermissionGate>
+
+            <PermissionGate permission="suspend_users">
+              <DropdownMenuItem>
+                <Prohibit className="mr-2 h-4 w-4" />
+                {user.status === 'suspended' ? 'Unsuspend' : 'Suspend'}
+              </DropdownMenuItem>
+            </PermissionGate>
+
+            <PermissionGate permission="ban_users">
+              <DropdownMenuItem className={user.status !== 'banned' ? 'text-destructive focus:text-destructive' : ''}>
+                <Lock className="mr-2 h-4 w-4" />
+                {user.status === 'banned' ? 'Unban' : 'Ban User'}
+              </DropdownMenuItem>
+            </PermissionGate>
+
+            <PermissionGate permission="delete_users">
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive focus:text-destructive">
+                <Trash className="mr-2 h-4 w-4" />
+                Delete User
+              </DropdownMenuItem>
+            </PermissionGate>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </TableCell>
     </TableRow>
   )

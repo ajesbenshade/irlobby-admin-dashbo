@@ -9,6 +9,7 @@ import { UsersPage } from '@/components/pages/UsersPage'
 import { ModerationPage } from '@/components/pages/ModerationPage'
 import { AnalyticsPage } from '@/components/pages/AnalyticsPage'
 import { AIAssistantPage } from '@/components/pages/AIAssistantPage'
+import { AdminPanelPage } from '@/components/pages/AdminPanelPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,7 +21,7 @@ const queryClient = new QueryClient({
   },
 })
 
-type Page = 'dashboard' | 'users' | 'moderation' | 'analytics' | 'ai'
+type Page = 'dashboard' | 'users' | 'moderation' | 'analytics' | 'ai' | 'admin'
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard')
@@ -37,6 +38,8 @@ function AppContent() {
         return <AnalyticsPage />
       case 'ai':
         return <AIAssistantPage />
+      case 'admin':
+        return <AdminPanelPage />
       default:
         return <DashboardPage />
     }
