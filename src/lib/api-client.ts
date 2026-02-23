@@ -20,6 +20,15 @@ class APIClient {
     this.timeout = config.api.timeout
   }
 
+  private async getAuthToken(): Promise<string | null> {
+    try {
+      const token = await window.spark.kv.get<string>('auth-token')
+      return token ?? null
+    } catch {
+      return null
+    }
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -28,12 +37,22 @@ class APIClient {
     const timeoutId = setTimeout(() => controller.abort(), this.timeout)
 
     try {
+      const token = await this.getAuthToken()
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+
+      if (options.headers) {
+        Object.assign(headers, options.headers)
+      }
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
+        headers,
         signal: controller.signal,
       })
 
@@ -41,6 +60,13 @@ class APIClient {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
+        
+        if (response.status === 401) {
+          await window.spark.kv.delete('auth-token')
+          await window.spark.kv.delete('auth-user')
+          window.location.reload()
+        }
+        
         throw new APIError(
           errorData.message || `HTTP ${response.status}: ${response.statusText}`,
           response.status,

@@ -31,13 +31,21 @@ See `API_INTEGRATION.md` for detailed documentation on the API layer.
 
 ## Essential Features
 
+### Authentication Flow
+- **Functionality**: Secure login/logout system with session persistence and role-based access control
+- **Purpose**: Protect admin resources and ensure only authorized users can access the dashboard
+- **Trigger**: App initialization or user logout
+- **Progression**: Load app → Check stored auth → Show login if unauthenticated → Validate credentials → Store session → Display dashboard → Logout clears session
+- **Success criteria**: Session persists across page reloads; unauthorized users cannot access protected routes; role-based restrictions enforced
+- **Implementation Status**: ✅ Complete - Full authentication flow with login page, protected routes, role-based access, persistent sessions via useKV, and logout functionality
+
 ### Authentication-Aware Layout
 - **Functionality**: Displays different UI states based on user authentication and role
 - **Purpose**: Ensures secure access and appropriate feature visibility for different user types
 - **Trigger**: App initialization and route changes
 - **Progression**: App loads → Check auth state → Show login prompt or authenticated shell → Route to appropriate view
-- **Success criteria**: Correct UI renders for authenticated/unauthenticated states; auth state persists across sessions
-- **Implementation Status**: ✅ Complete - Uses Spark's `spark.user()` API for authentication awareness
+- **Success criteria**: Correct UI renders for authenticated/unauthenticated states; auth state persists across sessions; user info displayed in header with logout option
+- **Implementation Status**: ✅ Complete - Uses AuthContext with useKV for persistence; displays user avatar, role badge, and logout dropdown
 
 ### Dashboard Home
 - **Functionality**: Central overview displaying app health, user activity, and key performance indicators
@@ -83,12 +91,14 @@ See `API_INTEGRATION.md` for detailed documentation on the API layer.
 
 - **Network Failures**: ✅ Graceful error states with user-friendly messages and retry buttons
 - **Empty States**: ✅ Helpful messages for sections with no data (implemented in all list views)
-- **Unauthorized Access**: ⏳ Planned - Redirect to login with preserved destination; clear error messaging
+- **Unauthorized Access**: ✅ Complete - Login page for unauthenticated users; role-based access denial with clear messaging; automatic redirect on session expiry
 - **Invalid Data**: ✅ Type-safe parsing of API responses via TypeScript interfaces
 - **Long Operations**: ✅ Loading states with skeleton loaders; mutation indicators with disabled buttons
 - **Concurrent Edits**: ⏳ Planned - Optimistic updates with conflict resolution
 - **API Timeouts**: ✅ 30-second timeout with TIMEOUT error code and retry functionality
 - **Debounced Search**: ✅ 300ms debounce on search inputs to reduce API calls
+- **Failed Login**: ✅ Clear error messages displayed on login form; no sensitive information revealed
+- **Session Persistence**: ✅ Auth tokens and user data stored in Spark KV store; survives page reloads
 
 ## Design Direction
 

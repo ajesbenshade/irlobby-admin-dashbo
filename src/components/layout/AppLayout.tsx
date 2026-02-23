@@ -1,6 +1,10 @@
 import { useState } from 'react'
-import { House, Users, Flag, ChartBar, Robot } from '@phosphor-icons/react'
+import { House, Users, Flag, ChartBar, Robot, SignOut } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/contexts/AuthContext'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 
 type Page = 'dashboard' | 'users' | 'moderation' | 'analytics' | 'ai'
 
@@ -12,6 +16,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, currentPage, onNavigate }: AppLayoutProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const { user, logout } = useAuth()
 
   const navItems = [
     { id: 'dashboard' as Page, label: 'Dashboard', icon: House },
@@ -20,6 +25,25 @@ export function AppLayout({ children, currentPage, onNavigate }: AppLayoutProps)
     { id: 'analytics' as Page, label: 'Analytics', icon: ChartBar },
     { id: 'ai' as Page, label: 'AI Assistant', icon: Robot },
   ]
+
+  const handleLogout = async () => {
+    await logout()
+  }
+
+  const getUserInitials = () => {
+    if (!user) return 'U'
+    const names = user.login.split(' ')
+    if (names.length >= 2) {
+      return `${names[0][0]}${names[1][0]}`.toUpperCase()
+    }
+    return user.login.substring(0, 2).toUpperCase()
+  }
+
+  const getRoleBadgeVariant = () => {
+    if (user?.role === 'admin') return 'default'
+    if (user?.role === 'moderator') return 'secondary'
+    return 'outline'
+  }
 
   return (
     <div className="flex h-screen bg-background">
@@ -114,17 +138,36 @@ export function AppLayout({ children, currentPage, onNavigate }: AppLayoutProps)
 
             <div className="h-8 w-px bg-border" />
 
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-                <span className="text-xs font-medium text-primary-foreground">AD</span>
-              </div>
-              {!isSidebarCollapsed && (
-                <div className="text-sm">
-                  <div className="font-medium">Admin User</div>
-                  <div className="text-xs text-muted-foreground">admin@irlobby.com</div>
-                </div>
-              )}
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-3 hover:bg-accent px-3 py-2 rounded-lg transition-colors">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user?.avatarUrl} alt={user?.login} />
+                    <AvatarFallback>{getUserInitials()}</AvatarFallback>
+                  </Avatar>
+                  <div className="text-sm text-left">
+                    <div className="font-medium">{user?.login || 'User'}</div>
+                    <div className="text-xs text-muted-foreground">{user?.email}</div>
+                  </div>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium">{user?.login}</p>
+                    <p className="text-xs text-muted-foreground">{user?.email}</p>
+                    <Badge variant={getRoleBadgeVariant()} className="w-fit mt-1">
+                      {user?.role}
+                    </Badge>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive cursor-pointer">
+                  <SignOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 

@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Toaster } from '@/components/ui/sonner'
+import { AuthProvider } from '@/contexts/AuthContext'
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { DashboardPage } from '@/components/pages/DashboardPage'
 import { UsersPage } from '@/components/pages/UsersPage'
@@ -9,7 +11,7 @@ import { AIAssistantPage } from '@/components/pages/AIAssistantPage'
 
 type Page = 'dashboard' | 'users' | 'moderation' | 'analytics' | 'ai'
 
-function App() {
+function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard')
 
   const renderPage = () => {
@@ -30,12 +32,20 @@ function App() {
   }
 
   return (
-    <>
+    <ProtectedRoute>
       <AppLayout currentPage={currentPage} onNavigate={setCurrentPage}>
         {renderPage()}
       </AppLayout>
+    </ProtectedRoute>
+  )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
       <Toaster />
-    </>
+    </AuthProvider>
   )
 }
 
