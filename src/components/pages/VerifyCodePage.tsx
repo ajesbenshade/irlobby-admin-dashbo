@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { ArrowLeft, Key } from '@phosphor-icons/react'
+import { ArrowLeft, Key, Warning } from '@phosphor-icons/react'
+import { rateLimiter, formatTimeRemaining } from '@/lib/rate-limiter'
 
 type VerifyCodePageProps = {
   email: string
@@ -16,6 +17,8 @@ export function VerifyCodePage({ email, onBackToForgotPassword, onCodeVerified }
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resendCooldown, setResendCooldown] = useState(0)
+  const [isBlocked, setIsBlocked] = useState(false)
+  const [blockTimeRemaining, setBlockTimeRemaining] = useState<string>('')
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   useEffect(() => {
@@ -28,6 +31,23 @@ export function VerifyCodePage({ email, onBackToForgotPassword, onCodeVerified }
   useEffect(() => {
     inputRefs.current[0]?.focus()
   }, [])
+
+  useEffect(() => {
+    const checkRateLimit = () => {
+      const remaining = rateLimiter.getRemainingTime(`code-verify-${email}`)
+      if (remaining && remaining > 0) {
+        setIsBlocked(true)
+        setBlockTimeRemaining(formatTimeRemaining(remaining))
+      } else {
+        setIsBlocked(false)
+        setBlockTimeRemaining('')
+      }
+    }
+
+    checkRateLimit()
+    const interval = setInterval(checkRateLimit, 1000)
+    return () => clearInterval(interval)
+  }, [email])
 
   const handleInputChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return
@@ -71,6 +91,26 @@ export function VerifyCodePage({ email, onBackToForgotPassword, onCodeVerified }
       return
     }
 
+    const rateLimitCheck = rateLimiter.checkLimit(`code-verify-${email}`, {
+      maxAttempts: 10,
+      windowMs: 15 * 60 * 1000,
+      blockDurationMs: 60 * 60 * 1000,
+    })
+
+    if (!rateLimitCheck.allowed) {
+      if (rateLimitCheck.blockedUntil) {
+        const remaining = rateLimitCheck.blockedUntil - Date.now()
+        setError(`Too many verification attempts. Please try again in ${formatTimeRemaining(remaining)}.`)
+        setIsBlocked(true)
+      } else if (rateLimitCheck.resetTime) {
+        const remaining = rateLimitCheck.resetTime - Date.now()
+        setError(`Rate limit exceeded. Please try again in ${formatTimeRemaining(remaining)}.`)
+      }
+      setCode(['', '', '', '', '', ''])
+      inputRefs.current[0]?.focus()
+      return
+    }
+
     setIsLoading(true)
 
     try {
@@ -82,9 +122,15 @@ export function VerifyCodePage({ email, onBackToForgotPassword, onCodeVerified }
 
       if (!response.ok) {
         const errorData = await response.json()
+        rateLimiter.recordAttempt(`code-verify-${email}`, {
+          maxAttempts: 10,
+          windowMs: 15 * 60 * 1000,
+          blockDurationMs: 60 * 60 * 1000,
+        })
         throw new Error(errorData.message || 'Invalid verification code')
       }
 
+      rateLimiter.reset(`code-verify-${email}`)
       onCodeVerified(email, verificationCode)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid verification code. Please try again.')
@@ -138,7 +184,16 @@ export function VerifyCodePage({ email, onBackToForgotPassword, onCodeVerified }
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {error && (
+              {isBlocked && blockTimeRemaining && (
+                <Alert variant="destructive" className="bg-destructive/10">
+                  <Warning size={20} className="text-destructive" />
+                  <AlertDescription>
+                    Too many attempts. Verification temporarily locked for {blockTimeRemaining}.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {error && !isBlocked && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
@@ -159,7 +214,7 @@ export function VerifyCodePage({ email, onBackToForgotPassword, onCodeVerified }
                       value={digit}
                       onChange={(e) => handleInputChange(index, e.target.value)}
                       onKeyDown={(e) => handleKeyDown(index, e)}
-                      disabled={isLoading}
+                      disabled={isLoading || isBlocked}
                       className="w-12 h-14 text-center text-2xl font-semibold border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                   ))}
@@ -169,7 +224,7 @@ export function VerifyCodePage({ email, onBackToForgotPassword, onCodeVerified }
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isLoading || code.some(d => !d)}
+                disabled={isLoading || code.some(d => !d) || isBlocked}
               >
                 {isLoading ? (
                   <>
@@ -193,7 +248,7 @@ export function VerifyCodePage({ email, onBackToForgotPassword, onCodeVerified }
                   variant="outline"
                   size="sm"
                   onClick={handleResendCode}
-                  disabled={resendCooldown > 0}
+                  disabled={resendCooldown > 0 || isBlocked}
                 >
                   {resendCooldown > 0 ? (
                     `Resend in ${resendCooldown}s`
@@ -218,7 +273,7 @@ export function VerifyCodePage({ email, onBackToForgotPassword, onCodeVerified }
         </Card>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          Code expires in 15 minutes
+          Code expires in 15 minutes. Limited to 10 attempts.
         </p>
       </div>
     </div>

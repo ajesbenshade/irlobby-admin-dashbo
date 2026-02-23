@@ -1,10 +1,11 @@
-import { useState, FormEvent } from 'react'
+import { useState, FormEvent, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { ArrowLeft, EnvelopeSimple } from '@phosphor-icons/react'
+import { ArrowLeft, EnvelopeSimple, Warning } from '@phosphor-icons/react'
+import { rateLimiter, formatTimeRemaining } from '@/lib/rate-limiter'
 
 type ForgotPasswordPageProps = {
   onBackToLogin: () => void
@@ -16,6 +17,25 @@ export function ForgotPasswordPage({ onBackToLogin, onCodeSent }: ForgotPassword
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [isBlocked, setIsBlocked] = useState(false)
+  const [blockTimeRemaining, setBlockTimeRemaining] = useState<string>('')
+
+  useEffect(() => {
+    const checkRateLimit = () => {
+      const remaining = rateLimiter.getRemainingTime('password-reset')
+      if (remaining && remaining > 0) {
+        setIsBlocked(true)
+        setBlockTimeRemaining(formatTimeRemaining(remaining))
+      } else {
+        setIsBlocked(false)
+        setBlockTimeRemaining('')
+      }
+    }
+
+    checkRateLimit()
+    const interval = setInterval(checkRateLimit, 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -33,6 +53,24 @@ export function ForgotPasswordPage({ onBackToLogin, onCodeSent }: ForgotPassword
       return
     }
 
+    const rateLimitCheck = rateLimiter.checkLimit('password-reset', {
+      maxAttempts: 5,
+      windowMs: 15 * 60 * 1000,
+      blockDurationMs: 30 * 60 * 1000,
+    })
+
+    if (!rateLimitCheck.allowed) {
+      if (rateLimitCheck.blockedUntil) {
+        const remaining = rateLimitCheck.blockedUntil - Date.now()
+        setError(`Too many password reset attempts. Please try again in ${formatTimeRemaining(remaining)}.`)
+        setIsBlocked(true)
+      } else if (rateLimitCheck.resetTime) {
+        const remaining = rateLimitCheck.resetTime - Date.now()
+        setError(`Rate limit exceeded. Please try again in ${formatTimeRemaining(remaining)}.`)
+      }
+      return
+    }
+
     setIsLoading(true)
 
     try {
@@ -44,9 +82,20 @@ export function ForgotPasswordPage({ onBackToLogin, onCodeSent }: ForgotPassword
 
       if (!response.ok) {
         const errorData = await response.json()
+        rateLimiter.recordAttempt('password-reset', {
+          maxAttempts: 5,
+          windowMs: 15 * 60 * 1000,
+          blockDurationMs: 30 * 60 * 1000,
+        })
         throw new Error(errorData.message || 'Failed to send reset code')
       }
 
+      rateLimiter.recordAttempt('password-reset', {
+        maxAttempts: 5,
+        windowMs: 15 * 60 * 1000,
+        blockDurationMs: 30 * 60 * 1000,
+      })
+      
       setSuccess(true)
       setTimeout(() => {
         onCodeSent(email)
@@ -79,7 +128,16 @@ export function ForgotPasswordPage({ onBackToLogin, onCodeSent }: ForgotPassword
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
+              {isBlocked && blockTimeRemaining && (
+                <Alert variant="destructive" className="bg-destructive/10">
+                  <Warning size={20} className="text-destructive" />
+                  <AlertDescription>
+                    Too many attempts. Account temporarily locked for {blockTimeRemaining}.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {error && !isBlocked && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
@@ -101,7 +159,7 @@ export function ForgotPasswordPage({ onBackToLogin, onCodeSent }: ForgotPassword
                   placeholder="admin@irlobby.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading || success}
+                  disabled={isLoading || success || isBlocked}
                   autoComplete="email"
                   required
                 />
@@ -110,7 +168,7 @@ export function ForgotPasswordPage({ onBackToLogin, onCodeSent }: ForgotPassword
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isLoading || success}
+                disabled={isLoading || success || isBlocked}
               >
                 {isLoading ? (
                   <>
@@ -145,7 +203,7 @@ export function ForgotPasswordPage({ onBackToLogin, onCodeSent }: ForgotPassword
         </Card>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          We'll send a 6-digit verification code to your email
+          Limited to 5 attempts per 15 minutes for security
         </p>
       </div>
     </div>

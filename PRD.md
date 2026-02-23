@@ -32,12 +32,12 @@ See `API_INTEGRATION.md` for detailed documentation on the API layer.
 ## Essential Features
 
 ### Authentication Flow
-- **Functionality**: Secure login/logout system with session persistence, role-based access control, and password reset flow
-- **Purpose**: Protect admin resources, ensure only authorized users can access the dashboard, and provide secure password recovery
-- **Trigger**: App initialization, user logout, or forgotten password
-- **Progression**: Load app → Check stored auth → Show login if unauthenticated → Validate credentials → Store session → Display dashboard → Logout clears session | Password Reset: Click "Forgot Password" → Enter email → Receive verification code → Enter 6-digit code → Set new password → Return to login
-- **Success criteria**: Session persists across page reloads; unauthorized users cannot access protected routes; role-based restrictions enforced; password reset codes expire after 15 minutes; new password meets security requirements
-- **Implementation Status**: ✅ Complete - Full authentication flow with login page, protected routes, role-based access, persistent sessions via useKV, logout functionality, and comprehensive password reset flow with email verification
+- **Functionality**: Secure login/logout system with session persistence, role-based access control, password reset flow, and rate limiting protection
+- **Purpose**: Protect admin resources, ensure only authorized users can access the dashboard, provide secure password recovery, and prevent brute force attacks
+- **Trigger**: App initialization, user logout, forgotten password, or excessive failed attempts
+- **Progression**: Load app → Check stored auth → Show login if unauthenticated → Validate credentials → Store session → Display dashboard → Logout clears session | Password Reset: Click "Forgot Password" → Enter email → Receive verification code → Enter 6-digit code → Set new password → Return to login | Rate Limiting: Monitor attempts → Block after exceeding limits → Show countdown timer → Automatically unblock after cooldown
+- **Success criteria**: Session persists across page reloads; unauthorized users cannot access protected routes; role-based restrictions enforced; password reset codes expire after 15 minutes; new password meets security requirements; login attempts limited to 5 per 15 minutes; password reset requests limited to 5 per 15 minutes; code verification limited to 10 attempts per hour; clear error messages with remaining lockout time; rate limits persist in localStorage
+- **Implementation Status**: ✅ Complete - Full authentication flow with login page, protected routes, role-based access, persistent sessions via useKV, logout functionality, comprehensive password reset flow with email verification, and client-side rate limiting to prevent brute force attacks on login, password reset, and code verification endpoints
 
 ### Authentication-Aware Layout
 - **Functionality**: Displays different UI states based on user authentication and role
@@ -98,6 +98,7 @@ See `API_INTEGRATION.md` for detailed documentation on the API layer.
 - **API Timeouts**: ✅ 30-second timeout with TIMEOUT error code and retry functionality
 - **Debounced Search**: ✅ 300ms debounce on search inputs to reduce API calls
 - **Failed Login**: ✅ Clear error messages displayed on login form; no sensitive information revealed
+- **Brute Force Protection**: ✅ Complete - Client-side rate limiting on login (5 attempts/15min), password reset (5 attempts/15min), and code verification (10 attempts/15min); automatic 30-60 minute lockouts; persistent across page reloads; clear countdown timers; visual warnings with remaining time
 - **Session Persistence**: ✅ Auth tokens and user data stored in Spark KV store; survives page reloads
 
 ## Design Direction

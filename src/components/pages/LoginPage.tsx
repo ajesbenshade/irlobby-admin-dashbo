@@ -1,15 +1,16 @@
-import { useState, FormEvent } from 'react'
+import { useState, FormEvent, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { SignIn, Eye, EyeSlash } from '@phosphor-icons/react'
+import { SignIn, Eye, EyeSlash, Warning } from '@phosphor-icons/react'
 import { ForgotPasswordPage } from './ForgotPasswordPage'
 import { VerifyCodePage } from './VerifyCodePage'
 import { ResetPasswordPage } from './ResetPasswordPage'
 import { toast } from 'sonner'
+import { rateLimiter, formatTimeRemaining } from '@/lib/rate-limiter'
 
 type AuthView = 'login' | 'forgot-password' | 'verify-code' | 'reset-password'
 
@@ -22,6 +23,27 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [resetEmail, setResetEmail] = useState('')
   const [verificationCode, setVerificationCode] = useState('')
+  const [isBlocked, setIsBlocked] = useState(false)
+  const [blockTimeRemaining, setBlockTimeRemaining] = useState<string>('')
+
+  useEffect(() => {
+    if (view === 'login') {
+      const checkRateLimit = () => {
+        const remaining = rateLimiter.getRemainingTime('login')
+        if (remaining && remaining > 0) {
+          setIsBlocked(true)
+          setBlockTimeRemaining(formatTimeRemaining(remaining))
+        } else {
+          setIsBlocked(false)
+          setBlockTimeRemaining('')
+        }
+      }
+
+      checkRateLimit()
+      const interval = setInterval(checkRateLimit, 1000)
+      return () => clearInterval(interval)
+    }
+  }, [view])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -32,9 +54,33 @@ export function LoginPage() {
       return
     }
 
+    const rateLimitCheck = rateLimiter.checkLimit('login', {
+      maxAttempts: 5,
+      windowMs: 15 * 60 * 1000,
+      blockDurationMs: 30 * 60 * 1000,
+    })
+
+    if (!rateLimitCheck.allowed) {
+      if (rateLimitCheck.blockedUntil) {
+        const remaining = rateLimitCheck.blockedUntil - Date.now()
+        setError(`Too many login attempts. Please try again in ${formatTimeRemaining(remaining)}.`)
+        setIsBlocked(true)
+      } else if (rateLimitCheck.resetTime) {
+        const remaining = rateLimitCheck.resetTime - Date.now()
+        setError(`Rate limit exceeded. Please try again in ${formatTimeRemaining(remaining)}.`)
+      }
+      return
+    }
+
     try {
       await login(email, password)
+      rateLimiter.reset('login')
     } catch (err) {
+      rateLimiter.recordAttempt('login', {
+        maxAttempts: 5,
+        windowMs: 15 * 60 * 1000,
+        blockDurationMs: 30 * 60 * 1000,
+      })
       setError(err instanceof Error ? err.message : 'Login failed. Please check your credentials.')
     }
   }
@@ -117,7 +163,16 @@ export function LoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
+              {isBlocked && blockTimeRemaining && (
+                <Alert variant="destructive" className="bg-destructive/10">
+                  <Warning size={20} className="text-destructive" />
+                  <AlertDescription>
+                    Too many login attempts. Account temporarily locked for {blockTimeRemaining}.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {error && !isBlocked && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
@@ -131,7 +186,7 @@ export function LoginPage() {
                   placeholder="admin@irlobby.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading}
+                  disabled={isLoading || isBlocked}
                   autoComplete="email"
                   required
                 />
@@ -146,7 +201,7 @@ export function LoginPage() {
                     placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading}
+                    disabled={isLoading || isBlocked}
                     autoComplete="current-password"
                     required
                     className="pr-10"
@@ -179,7 +234,7 @@ export function LoginPage() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isLoading}
+                disabled={isLoading || isBlocked}
               >
                 {isLoading ? (
                   <>
@@ -203,6 +258,10 @@ export function LoginPage() {
             </div>
           </CardContent>
         </Card>
+
+        <p className="text-center text-xs text-muted-foreground mt-6">
+          Limited to 5 attempts per 15 minutes for security
+        </p>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
           Protected admin area. Unauthorized access is prohibited.
