@@ -5,7 +5,7 @@ export const config = {
   },
   
   api: {
-    baseUrl: import.meta.env.VITE_API_BASE_URL || 'https://api.irlobby.com',
+    baseUrl: import.meta.env.VITE_API_URL || 'https://api.irlobby.com',
     timeout: 30000,
   },
   

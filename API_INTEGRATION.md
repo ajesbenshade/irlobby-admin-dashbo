@@ -4,83 +4,180 @@ This document describes the API integration architecture for the IRLobby Admin D
 
 ## Architecture Overview
 
-The application uses a layered architecture for API communication:
+The application uses a modern, production-ready architecture for API communication:
 
-1. **API Client Layer** (`src/lib/api-client.ts`) - Low-level HTTP client with error handling
-2. **API Service Layer** (`src/lib/api.ts`) - Type-safe API endpoint definitions
-3. **React Hooks Layer** (`src/hooks/use-api.ts`) - React hooks for data fetching with loading/error states
-4. **Component Layer** - UI components that consume the hooks
+1. **Axios Client Layer** (`src/lib/api.ts`) - Axios-based HTTP client with automatic token refresh
+2. **TanStack Query Layer** (`src/hooks/use-api.ts`) - React Query hooks for data fetching with caching, loading/error states
+3. **Component Layer** - UI components that consume the hooks
 
 ## Configuration
 
 ### Environment Variables
 
-The API base URL can be configured via environment variable:
+Create a `.env` file in the root directory (see `.env.example`):
 
 ```env
-VITE_API_BASE_URL=https://api.irlobby.com
+VITE_API_URL=https://api.irlobby.com
 ```
 
-If not set, it defaults to `https://api.irlobby.com` as defined in `src/lib/config.ts`.
+If not set, it defaults to `https://api.irlobby.com`.
 
 ### Timeout
 
-The default API timeout is 30 seconds and can be adjusted in `src/lib/config.ts`:
+The default API timeout is 30 seconds and can be adjusted in the axios client configuration in `src/lib/api.ts`.
 
-```typescript
-api: {
-  baseUrl: import.meta.env.VITE_API_BASE_URL || 'https://api.irlobby.com',
-  timeout: 30000, // 30 seconds
-}
-```
+## Authentication
+
+The admin dashboard uses JWT authentication with automatic token refresh.
+
+### Token Storage
+
+- **Access Token**: Stored in memory only (not persisted)
+- **Refresh Token**: Stored in `localStorage` for session persistence
+
+### Authentication Endpoints
+
+- `POST /api/auth/token/` - Login (email/password → access/refresh tokens)
+  - Body: `{ email: string, password: string }`
+  - Returns: `{ access: string, refresh: string, user: {...} }`
+
+- `POST /api/auth/token/refresh/` - Refresh access token
+  - Body: `{ refresh: string }`
+  - Returns: `{ access: string }`
+
+- `POST /api/auth/token/blacklist/` - Logout (blacklist refresh token)
+  - Body: `{ refresh: string }`
+
+### Automatic Token Refresh
+
+The axios client automatically:
+1. Intercepts 401 responses
+2. Attempts to refresh the access token
+3. Retries the failed request with the new token
+4. Redirects to login if refresh fails
 
 ## API Endpoints
 
 ### Users
 
-- `GET /api/users` - List users with optional search and status filters
+- `GET /api/users/` - List users with optional search and status filters
   - Query params: `search`, `status`
   - Returns: `{ users: User[], total: number }`
 
-- `GET /api/users/:id` - Get user by ID
+- `GET /api/users/:id/` - Get user by ID
   - Returns: `User`
 
-- `PATCH /api/users/:id` - Update user
+- `PATCH /api/users/:id/` - Update user
   - Body: `Partial<User>`
   - Returns: `User`
 
-- `DELETE /api/users/:id` - Delete user
+- `DELETE /api/users/:id/` - Delete user
   - Returns: `void`
 
 ### Content Moderation
 
-- `GET /api/content` - List content items with optional filters
+- `GET /api/content/` - List content items with optional filters
   - Query params: `status`, `type`
   - Returns: `{ items: ContentItem[], total: number }`
 
-- `GET /api/content/:id` - Get content item by ID
+- `GET /api/content/:id/` - Get content item by ID
   - Returns: `ContentItem`
 
-- `POST /api/content/:id/moderate` - Moderate content
+- `POST /api/content/:id/moderate/` - Moderate content
   - Body: `{ action: 'approve' | 'reject', reason?: string }`
   - Returns: `ContentItem`
 
 ### Metrics
 
-- `GET /api/metrics/dashboard` - Get dashboard metrics
+- `GET /api/metrics/dashboard/` - Get dashboard metrics
   - Returns: `Metric[]`
 
-- `GET /api/metrics/status` - Get system status
+- `GET /api/metrics/status/` - Get system status
   - Returns: `AppStatus`
 
 ### Analytics
 
-- `GET /api/analytics/timeseries` - Get time series data
+- `GET /api/analytics/timeseries/` - Get time series data
   - Query params: `startDate`, `endDate`, `metric`
   - Returns: `AnalyticsDataPoint[]`
 
-- `GET /api/analytics/engagement` - Get engagement metrics
+- `GET /api/analytics/engagement/` - Get engagement metrics
   - Returns: `{ avgSessionDuration: number, contentPosts: number, userInteractions: number, retentionRate: number }`
+
+## Connecting to IRLobby Backend
+
+### Backend Requirements
+
+The IRLobby Django backend should expose the following:
+
+1. **JWT Authentication** using `djangorestframework-simplejwt`
+2. **Token Blacklisting** for secure logout
+3. **CORS Configuration** to allow the admin dashboard origin
+
+### Example Django Settings
+
+```python
+# settings.py
+
+INSTALLED_APPS = [
+    # ...
+    'rest_framework',
+    'rest_framework_simplejwt.token_blacklist',
+    'corsheaders',
+]
+
+MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    # ... other middleware
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "https://admin.irlobby.com",  # Your deployed admin dashboard
+    "http://localhost:5173",       # Local development
+]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}
+
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+}
+```
+
+### Example Django URLs
+
+```python
+# urls.py
+
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+    TokenBlacklistView,
+)
+
+urlpatterns = [
+    path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/auth/token/blacklist/', TokenBlacklistView.as_view(), name='token_blacklist'),
+    
+    # Your other API endpoints
+    path('api/users/', include('users.urls')),
+    path('api/content/', include('content.urls')),
+    path('api/metrics/', include('metrics.urls')),
+    path('api/analytics/', include('analytics.urls')),
+]
+```
 
 ## Usage Examples
 
@@ -114,8 +211,8 @@ function MyComponent() {
 import { useModerateContent } from '@/hooks/use-api'
 import { toast } from 'sonner'
 
-function ModerationButton({ contentId }) {
-  const { mutate, isLoading } = useModerateContent()
+function ModerationButton({ contentId }: { contentId: string }) {
+  const { mutate, isPending } = useModerateContent()
 
   const handleApprove = async () => {
     try {
@@ -127,7 +224,7 @@ function ModerationButton({ contentId }) {
   }
 
   return (
-    <Button onClick={handleApprove} disabled={isLoading}>
+    <Button onClick={handleApprove} disabled={isPending}>
       Approve
     </Button>
   )
@@ -136,26 +233,14 @@ function ModerationButton({ contentId }) {
 
 ## Error Handling
 
-The API client handles errors in multiple ways:
-
-### APIError Class
-
-All API errors are wrapped in the `APIError` class with the following properties:
-
-```typescript
-class APIError extends Error {
-  message: string  // Human-readable error message
-  status?: number  // HTTP status code (e.g., 404, 500)
-  code?: string    // Error code (e.g., 'TIMEOUT', 'NETWORK_ERROR')
-}
-```
+The API client handles errors automatically:
 
 ### Error Types
 
-- **HTTP Errors** (4xx, 5xx): Status code and server message
-- **Timeout Errors**: `status: 408`, `code: 'TIMEOUT'`
-- **Network Errors**: `code: 'NETWORK_ERROR'`
-- **Unknown Errors**: `code: 'UNKNOWN_ERROR'`
+- **HTTP Errors** (4xx, 5xx): Axios error with response data
+- **Network Errors**: Connection failures
+- **Timeout Errors**: Request timeout after 30 seconds
+- **401 Unauthorized**: Triggers automatic token refresh or redirect to login
 
 ### Displaying Errors
 
@@ -190,6 +275,49 @@ All data-fetching hooks return an `isLoading` boolean. Components should display
 )}
 ```
 
+## Caching and Refetching
+
+TanStack Query automatically caches responses and provides intelligent refetching:
+
+```typescript
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,  // Don't refetch on window focus
+      retry: 1,                      // Retry failed requests once
+      staleTime: 5 * 60 * 1000,     // Consider data fresh for 5 minutes
+    },
+  },
+})
+```
+
+### Manual Refetching
+
+```typescript
+const { data, refetch } = useUsers()
+
+// Refetch manually
+refetch()
+```
+
+### Query Invalidation
+
+Mutations automatically invalidate related queries:
+
+```typescript
+export function useUpdateUser() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, data }) => api.users.update(id, data),
+    onSuccess: () => {
+      // Automatically refetch all user queries
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+    },
+  })
+}
+```
+
 ## Debouncing
 
 For search inputs, use debouncing to avoid excessive API calls:
@@ -207,18 +335,6 @@ useEffect(() => {
 }, [searchQuery])
 
 const { data } = useUsers({ search: debouncedSearch })
-```
-
-## Development with Mock Data
-
-During development or when the API is unavailable, you can temporarily use mock data by importing from `@/lib/mock-data`:
-
-```typescript
-// For development only
-import { mockUsers } from '@/lib/mock-data'
-
-// Production
-import { useUsers } from '@/hooks/use-api'
 ```
 
 ## Type Safety
@@ -243,16 +359,20 @@ To add a new API endpoint:
      // ... existing endpoints
      newResource: {
        list: async () => {
-         return apiClient.get<ResourceType[]>('/api/resources')
+         const response = await apiClient.get('/api/resources/')
+         return response.data
        },
      },
    }
    ```
 
-2. **Create a React hook** (`src/hooks/use-api.ts`):
+2. **Create a React Query hook** (`src/hooks/use-api.ts`):
    ```typescript
    export function useResources() {
-     return useQuery<ResourceType[]>(() => api.newResource.list(), [])
+     return useQuery({
+       queryKey: ['resources'],
+       queryFn: () => api.newResource.list(),
+     })
    }
    ```
 
@@ -260,3 +380,19 @@ To add a new API endpoint:
    ```typescript
    const { data, isLoading, error } = useResources()
    ```
+
+## Deployment
+
+### Build for Production
+
+```bash
+npm run build
+```
+
+### Environment Variables for Production
+
+Ensure `VITE_API_URL` is set to your production API URL in your deployment environment (Netlify, Vercel, etc.).
+
+### CORS Configuration
+
+Coordinate with the backend team to add your deployed admin dashboard URL to `CORS_ALLOWED_ORIGINS` in the Django settings.

@@ -11,7 +11,7 @@ import type { ContentItem } from '@/types'
 export function ModerationPage() {
   const { data: pendingData, isLoading: pendingLoading, error: pendingError, refetch: refetchPending } = useContentItems({ status: 'pending' })
   const { data: reviewedData, isLoading: reviewedLoading, refetch: refetchReviewed } = useContentItems({ status: 'approved,rejected' })
-  const { mutate: moderate, isLoading: moderating } = useModerateContent()
+  const { mutate: moderate, isPending: moderating } = useModerateContent()
 
   const pendingItems = pendingData?.items || []
   const reviewedItems = reviewedData?.items || []
