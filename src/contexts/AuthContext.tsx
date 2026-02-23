@@ -74,14 +74,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: data.user.role,
       }
 
-      await setAuthToken(data.token)
-      await setAuthUser(userData)
+      setAuthToken(() => data.token)
+      setAuthUser(() => userData)
       setUser(userData)
+      setIsLoading(false)
     } catch (error) {
       console.error('Login error:', error)
-      throw error
-    } finally {
       setIsLoading(false)
+      throw error
     }
   }
 
@@ -97,8 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }).catch(() => {})
       }
       
-      await setAuthToken(null)
-      await setAuthUser(null)
+      setAuthToken(() => null)
+      setAuthUser(() => null)
       setUser(null)
     } finally {
       setIsLoading(false)
