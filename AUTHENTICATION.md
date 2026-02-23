@@ -293,11 +293,17 @@ To test role-based access:
 - Verify credentials are correct
 - Check network tab for error responses
 - Ensure API returns expected response format
+- Clear KV storage if stale: `await spark.kv.delete('auth-token')` and `await spark.kv.delete('auth-user')`
 
 ### Session not persisting
 - Check Spark KV is working: `await spark.kv.keys()`
 - Verify `useKV` hooks are properly configured
 - Check browser console for errors
+
+### Login successful but not redirecting to dashboard
+- ✅ **Fixed**: Removed initialization flag that prevented auth state updates after initial render
+- The AuthContext now properly responds to KV state changes after login
+- User state updates immediately when credentials are stored
 
 ### Access denied on valid role
 - Verify role hierarchy in `ProtectedRoute.tsx`

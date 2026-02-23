@@ -26,17 +26,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [authToken, setAuthToken] = useKV<string | null>('auth-token', null)
   const [authUser, setAuthUser] = useKV<AuthUser | null>('auth-user', null)
-  const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
-    if (!initialized) {
-      if (authToken && authUser) {
-        setUser(authUser)
-      }
-      setIsLoading(false)
-      setInitialized(true)
+    if (authToken && authUser) {
+      setUser(authUser)
+    } else {
+      setUser(null)
     }
-  }, [initialized, authToken, authUser])
+    setIsLoading(false)
+  }, [authToken, authUser])
 
   const checkAuth = async () => {
     setIsLoading(true)
