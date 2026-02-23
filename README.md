@@ -1,23 +1,119 @@
-# ✨ Welcome to Your Spark Template!
-You've just launched your brand-new Spark Template Codespace — everything’s fired up and ready for you to explore, build, and create with Spark!
+# IRLobby Admin Dashboard
 
-This template is your blank canvas. It comes with a minimal setup to help you get started quickly with Spark development.
+A professional web-based administration companion for the IRLobby mobile app, built with React, TypeScript, and Spark APIs.
 
-🚀 What's Inside?
-- A clean, minimal Spark environment
-- Pre-configured for local development
-- Ready to scale with your ideas
-  
-🧠 What Can You Do?
+## Project Structure
 
-Right now, this is just a starting point — the perfect place to begin building and testing your Spark applications.
+```
+src/
+├── components/
+│   ├── layout/
+│   │   └── AppLayout.tsx          # Main layout with sidebar navigation
+│   ├── pages/
+│   │   ├── DashboardPage.tsx      # Overview dashboard with metrics
+│   │   ├── UsersPage.tsx          # User management and search
+│   │   ├── ModerationPage.tsx     # Content moderation queue
+│   │   ├── AnalyticsPage.tsx      # Charts and engagement metrics
+│   │   └── AIAssistantPage.tsx    # AI-powered chat assistant
+│   └── ui/                        # shadcn/ui components (pre-installed)
+├── lib/
+│   ├── config.ts                  # App configuration and constants
+│   ├── mock-data.ts               # Mock data for development
+│   └── utils.ts                   # Utility functions
+├── types/
+│   └── index.ts                   # TypeScript type definitions
+├── App.tsx                        # Main app component with routing
+└── index.css                      # Custom theme and styles
+```
 
-🧹 Just Exploring?
-No problem! If you were just checking things out and don’t need to keep this code:
+## Features
 
-- Simply delete your Spark.
-- Everything will be cleaned up — no traces left behind.
+### Dashboard
+- Real-time system status monitoring
+- Key metrics with trend indicators
+- Quick action shortcuts
+- App health visualization
 
-📄 License For Spark Template Resources 
+### User Management
+- Search and filter users
+- View user details and activity
+- Role and status management
+- Report tracking
 
-The Spark Template files and resources from GitHub are licensed under the terms of the MIT license, Copyright GitHub, Inc.
+### Content Moderation
+- Review flagged content queue
+- Approve/reject moderation actions
+- Filter by status (pending/reviewed)
+- Context viewing for reported items
+
+### Analytics
+- Daily active users chart
+- User growth trends
+- Engagement metrics
+- Responsive visualizations with Recharts
+
+### AI Assistant
+- Chat-based interface for admin tasks
+- Powered by Spark AI (gpt-4o-mini)
+- Conversation history persistence
+- Example prompts for common queries
+
+## Technology Stack
+
+- **React 19** - UI framework
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Utility-first styling
+- **shadcn/ui** - Component library
+- **Recharts** - Data visualization
+- **Phosphor Icons** - Icon set
+- **Spark APIs** - AI and persistence (useKV hook)
+- **Sonner** - Toast notifications
+
+## Development
+
+The app uses mock data for development. All data utilities are in `src/lib/mock-data.ts`.
+
+### Key Patterns
+
+**State Management:**
+- Use `useKV` hook for persistent state (chat messages, etc.)
+- Use `useState` for transient UI state
+
+**Navigation:**
+- Client-side routing via state management
+- Page components in `src/components/pages/`
+
+**Styling:**
+- Custom indigo/cyan theme in `index.css`
+- Tailwind utility classes throughout
+- Inter font for UI, JetBrains Mono for data
+
+## Next Steps
+
+1. **API Integration**
+   - Replace mock data with real API calls
+   - Add error handling and loading states
+   - Implement data fetching hooks
+
+2. **Authentication**
+   - Add login/logout flow
+   - Implement role-based access control
+   - Integrate with IRLobby auth system
+
+3. **Real-time Features**
+   - WebSocket connection for live updates
+   - Real-time notification system
+   - Live dashboard metric updates
+
+4. **Enhanced Features**
+   - Advanced filtering and sorting
+   - Bulk operations for users/content
+   - Export analytics data
+   - Detailed audit logs
+
+## Notes
+
+- This is a desktop-first application
+- All pages use placeholder data currently
+- AI assistant requires Spark runtime environment
+- Component architecture is modular and extensible
